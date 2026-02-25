@@ -7,7 +7,7 @@ BOT_TOKEN = "8733324125:AAFRO1dGo891edYxWlI5nBvx7rl2MB6HZNg"
 OPENAI_API_KEY = "proj-6Dyk5QLZ6Odf57NRXxnsh8BD8IfcQ3717yzeT9m8n-UGcPymAO46SHIfyCRzDYSxrdpFOS3uXuT3BlbkFJJc6MCeZi-_aqdjE5uQrsLputQ0TcS0XDlZnnIJTOCcuE9uBWtN8hkmpahciD0JtSjTrgYAHygA"
 
 bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher()
+dp = Dispatcher(bot)
 
 client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
