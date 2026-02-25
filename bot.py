@@ -1,6 +1,6 @@
 from aiogram import Bot, Dispatcher
-from aiogram.filters.command import CommandStart
-from aiogram.types import Message
+from aiogram import Bot, Dispatcher, types
+from aiogram.utils import executor
 import asyncio
 
 BOT_TOKEN = "8733324125:AAFRO1dGo891edYxWlI5nBvx7rl2MB6HZNg"
