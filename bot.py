@@ -1,15 +1,15 @@
-from aiogram import Bot, Dispatcher
+import os
 from aiogram import Bot, Dispatcher, types
 from aiogram.utils import executor
-import asyncio
+from openai import AsyncOpenAI
 
-BOT_TOKEN = "8733324125:AAFRO1dGo891edYxWlI5nBvx7rl2MB6HZNg"
-OPENAI_API_KEY = "proj-6Dyk5QLZ6Odf57NRXxnsh8BD8IfcQ3717yzeT9m8n-UGcPymAO46SHIfyCRzDYSxrdpFOS3uXuT3BlbkFJJc6MCeZi-_aqdjE5uQrsLputQ0TcS0XDlZnnIJTOCcuE9uBWtN8hkmpahciD0JtSjTrgYAHygA"
+BOT_TOKEN = os.getenv("8733324125:AAFRO1dGo891edYxWlI5nBvx7rl2MB6HZNg")
+OPENAI_API_KEY = os.getenv("proj-6Dyk5QLZ6Odf57NRXxnsh8BD8IfcQ3717yzeT9m8n-UGcPymAO46SHIfyCRzDYSxrdpFOS3uXuT3BlbkFJJc6MCeZi-_aqdjE5uQrsLputQ0TcS0XDlZnnIJTOCcuE9uBWtN8hkmpahciD0JtSjTrgYAHygA")
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(bot)
 
-client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+client = AsyncOpenAI(api_key="proj-6Dyk5QLZ6Odf57NRXxnsh8BD8IfcQ3717yzeT9m8n-UGcPymAO46SHIfyCRzDYSxrdpFOS3uXuT3BlbkFJJc6MCeZi-_aqdjE5uQrsLputQ0TcS0XDlZnnIJTOCcuE9uBWtN8hkmpahciD0JtSjTrgYAHygA")
 
 
 @dp.message(CommandStart())
