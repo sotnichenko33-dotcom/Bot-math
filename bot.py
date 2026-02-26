@@ -2,6 +2,10 @@ import os
 import logging
 from aiogram import Bot, Dispatcher, executor, types
 
+# 🔍 ВРЕМЕННАЯ ДИАГНОСТИКА (можно удалить после проверки)
+print("BOT_TOKEN =", repr(os.getenv("BOT_TOKEN")))
+print("OPENAI_API_KEY =", repr(os.getenv("OPENAI_API_KEY")))
+
 # =========================
 # ЛОГИ
 # =========================
@@ -46,6 +50,6 @@ async def echo_handler(message: types.Message):
 # =========================
 # ЗАПУСК
 # =========================
-if name == "__main__":
+if __name__ == "__main__":
     logging.info("🚀 Бот запускается...")
     executor.start_polling(dp, skip_updates=True)
