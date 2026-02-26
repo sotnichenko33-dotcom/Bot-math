@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 from aiogram import Bot, Dispatcher, executor, types
 from duckduckgo_search import DDGS
 from PIL import Image
-import pytesseract
 
 # ================== НАСТРОЙКИ ==================
 openai.api_key = os.getenv("OPENAI_API_KEY")
