@@ -2,6 +2,9 @@ import os
 import logging
 from aiogram import Bot, Dispatcher, executor, types
 
+from sympy import sympify
+from sympy.core.sympify import SympifyError
+
 # 🔍 ВРЕМЕННАЯ ДИАГНОСТИКА (можно удалить после проверки)
 print("BOT_TOKEN =", repr(os.getenv("BOT_TOKEN")))
 print("OPENAI_API_KEY =", repr(os.getenv("OPENAI_API_KEY")))
@@ -48,12 +51,14 @@ async def start_handler(message: types.Message):
 async def math_handler(message: types.Message):
     try:
         expr = message.text.replace("^", "**")
-        result = eval(expr)
-        await message.answer(f"✅ Результат: {result}")
-    except:
+        result = sympify(expr)
+        await message.answer(f"✅ Результат:\n{result}")
+    except SympifyError:
         await message.answer(
-            "❌ Я могу решать только математические выражения.\n"
-            "Пример: 2+2*(5-1)"
+            "❌ Я решаю только математические выражения.\n"
+            "Примеры:\n"
+            "2+2*(5-1)\n"
+            "x^2-4"
         )
 
 # =========================
