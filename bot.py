@@ -51,31 +51,49 @@ async def start_handler(message: types.Message):
 @dp.message_handler(lambda message: message.text and not message.text.startswith("/"))
 async def math_handler(message: types.Message):
     try:
-        text = message.text.replace("^", "**")
+        text = message.text.replace(" ", "").replace(",", ".")
 
-        # если это уравнение
+        # ===== УРАВНЕНИЕ =====
         if "=" in text:
-            left, right = text.split("=", 1)
-            expr = sympify(left) - sympify(right)
-            result = solve(expr, x)
+            left, right = text.split("=")
+            left_expr = sympify(left)
+            right_expr = sympify(right)
 
-            if len(result) == 0:
-                await message.answer("❌ Решений нет")
-            else:
-                await message.answer(f"✅ Решение:\n{result}")
+            equation = left_expr - right_expr
+            solution = solve(equation, x)
 
-        # если обычный пример
+            steps = (
+                "🧮 *Решение по шагам:*\n\n"
+                f"1️⃣ Исходное уравнение:\n{left} = {right}\n\n"
+                f"2️⃣ Переносим всё в одну сторону:\n{equation} = 0\n\n"
+                f"3️⃣ Решаем уравнение:\n{x} = {solution}"
+            )
+
+            await message.answer(steps, parse_mode="Markdown")
+
+        # ===== ВЫРАЖЕНИЕ =====
         else:
-            result = sympify(text).doit()
-            await message.answer(f"✅ Результат:\n{result}")
+            expr = sympify(text)
 
-    except (SympifyError, ValueError):
+            simplified = simplify(expr)
+            result = expr.evalf()
+
+            steps = (
+                "🧮 *Решение по шагам:*\n\n"
+                f"1️⃣ Исходное выражение:\n{text}\n\n"
+                f"2️⃣ Упрощаем:\n{simplified}\n\n"
+                f"3️⃣ Ответ:\n{result}"
+            )
+
+            await message.answer(steps, parse_mode="Markdown")
+
+    except Exception as e:
         await message.answer(
-            "❌ Я решаю только математические выражения и уравнения.\n\n"
+            "❌ Ошибка\n\n"
+            "Проверь выражение.\n"
             "Примеры:\n"
-            "2+2*(5-1)\n"
-            "x^2-4=0\n"
-            "2*x+5=9"
+            "2+2*5\n"
+            "2*x+4=10"
         )
 
 # =========================
