@@ -2,8 +2,9 @@ import os
 import logging
 from aiogram import Bot, Dispatcher, executor, types
 
-from sympy import sympify
+from sympy import sympify, solve
 from sympy.core.sympify import SympifyError
+from sympy.abc import x
 
 # 🔍 ВРЕМЕННАЯ ДИАГНОСТИКА (можно удалить после проверки)
 print("BOT_TOKEN =", repr(os.getenv("BOT_TOKEN")))
@@ -47,18 +48,34 @@ async def start_handler(message: types.Message):
     )
 
 
-@dp.message_handler()
+@dp.message_handler(lambda message: message.text and not message.text.startswith("/"))
 async def math_handler(message: types.Message):
     try:
-        expr = message.text.replace("^", "**")
-        result = sympify(expr)
-        await message.answer(f"✅ Результат:\n{result}")
-    except SympifyError:
+        text = message.text.replace("^", "**")
+
+        # если это уравнение
+        if "=" in text:
+            left, right = text.split("=", 1)
+            expr = sympify(left) - sympify(right)
+            result = solve(expr, x)
+
+            if len(result) == 0:
+                await message.answer("❌ Решений нет")
+            else:
+                await message.answer(f"✅ Решение:\n{result}")
+
+        # если обычный пример
+        else:
+            result = sympify(text).doit()
+            await message.answer(f"✅ Результат:\n{result}")
+
+    except (SympifyError, ValueError):
         await message.answer(
-            "❌ Я решаю только математические выражения.\n"
+            "❌ Я решаю только математические выражения и уравнения.\n\n"
             "Примеры:\n"
             "2+2*(5-1)\n"
-            "x^2-4"
+            "x^2-4=0\n"
+            "2*x+5=9"
         )
 
 # =========================
