@@ -39,13 +39,22 @@ dp = Dispatcher(bot)
 async def start_handler(message: types.Message):
     await message.answer(
         "👋 Привет!\n\n"
-        "Я бот-математик 🤖\n"
-        "Напиши любое сообщение — я отвечу."
+        "🤖 Я бот-математик\n"
+        "✍️ Напиши пример, и я его решу"
     )
 
+
 @dp.message_handler()
-async def echo_handler(message: types.Message):
-    await message.answer(f"Ты написал:\n{message.text}")
+async def math_handler(message: types.Message):
+    try:
+        expr = message.text.replace("^", "**")
+        result = eval(expr)
+        await message.answer(f"✅ Результат: {result}")
+    except:
+        await message.answer(
+            "❌ Я могу решать только математические выражения.\n"
+            "Пример: 2+2*(5-1)"
+        )
 
 # =========================
 # ЗАПУСК
