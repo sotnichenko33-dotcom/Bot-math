@@ -1,134 +1,120 @@
-import os
+import logging
 import io
-import openai
-import sympy as sp
-import matplotlib.pyplot as plt
 
 from aiogram import Bot, Dispatcher, executor, types
-from duckduckgo_search import DDGS
-from PIL import Image
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+
+import sympy as sp
+import numpy as np
+import matplotlib.pyplot as plt
 
 # ================== НАСТРОЙКИ ==================
-openai.api_key = os.getenv("OPENAI_API_KEY")
-BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-bot = Bot(token=BOT_TOKEN)
+API_TOKEN = "ТВОЙ_TELEGRAM_BOT_TOKEN"
+
+logging.basicConfig(level=logging.INFO)
+
+bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 
-x = sp.symbols('x')
+# ================== ПЕРЕМЕННЫЕ ==================
 
-# ================== ИИ ОТВЕТ ==================
-async def ai_answer(prompt: str):
-    response = openai.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "Ты умный учебный помощник. Объясняй понятно и по шагам."},
-            {"role": "user", "content": prompt}
-        ]
-    )
-    return response.choices[0].message.content
+user_mode = {}  # режим пользователя: math / graph
 
-# ================== МАТЕМАТИКА ==================
-def solve_math(expr: str):
-    if "=" in expr:
-        left, right = expr.split("=")
-        eq = sp.Eq(sp.sympify(left), sp.sympify(right))
-        steps = sp.solve(eq, x, dict=True)
-        return f"Решение:\n{steps}"
-    else:
-        result = sp.sympify(expr)
-        return f"Ответ: {result}"
+# ================== КНОПКИ ==================
+
+keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
+keyboard.add(
+    KeyboardButton("▲ Математика"),
+    KeyboardButton("📊 График")
+)
 
 # ================== ГРАФИК ==================
+
 def build_plot(expr: str):
+    x = sp.symbols('x')
     y = sp.sympify(expr)
-    xs = range(-10, 11)
-    ys = [y.subs(x, i) for i in xs]
+
+    f = sp.lambdify(x, y, "numpy")
+    xs = np.linspace(-10, 10, 400)
+    ys = f(xs)
 
     plt.figure()
     plt.plot(xs, ys)
-    plt.grid()
+    plt.grid(True)
 
     buf = io.BytesIO()
     plt.savefig(buf, format="png")
     buf.seek(0)
     plt.close()
+
     return buf
 
-# ================== ИНТЕРНЕТ ==================
-def internet_search(query: str):
-    with DDGS() as ddgs:
-        results = list(ddgs.text(query, max_results=3))
-        text = ""
-        for r in results:
-            text += f"• {r['title']}\n{r['body']}\n\n"
-        return text or "Ничего не найдено"
+# ================== /start ==================
 
-# ================== ФОТО ==================
-def photo_to_text(image_bytes):
-    image = Image.open(io.BytesIO(image_bytes))
-    return pytesseract.image_to_string(image, lang="rus+eng")
-
-# ================== КНОПКИ ==================
-keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-keyboard.add("📐 Математика", "📷 Фото-задача")
-keyboard.add("🌐 Интернет", "📊 График")
-keyboard.add("🤖 Спросить ИИ")
-
-# ================== СТАРТ ==================
 @dp.message_handler(commands=["start"])
 async def start(msg: types.Message):
     await msg.answer(
-        "👋 Я умный ИИ-бот\n\n"
-        "Я умею:\n"
-        "• решать задачи\n"
-        "• объяснять по шагам\n"
-        "• решать по фото\n"
-        "• строить графики\n"
-        "• искать в интернете",
+        "👋 Привет!\n\n"
+        "Я умный математический бот 🤖\n"
+        "Выбери режим ниже 👇",
         reply_markup=keyboard
     )
 
-# ================== ТЕКСТ ==================
+# ================== РЕЖИМ МАТЕМАТИКА ==================
+
+@dp.message_handler(lambda msg: msg.text == "▲ Математика")
+async def math_mode(msg: types.Message):
+    user_mode[msg.from_user.id] = "math"
+    await msg.answer(
+        "📐 *Режим Математика включён!*\n\n"
+        "Примеры:\n"
+        "`2+2`\n"
+        "`10000*2`\n"
+        "`(5+3)*4`",
+        parse_mode="Markdown"
+    )
+
+# ================== РЕЖИМ ГРАФИК ==================
+
+@dp.message_handler(lambda msg: msg.text == "📊 График")
+async def graph_mode(msg: types.Message):
+    user_mode[msg.from_user.id] = "graph"
+    await msg.answer(
+        "📊 *Режим График включён!*\n\n"
+        "Введи выражение с `x`\n"
+        "Пример:\n"
+        "`x**2 + 3*x`",
+        parse_mode="Markdown"
+    )
+
+# ================== ОБРАБОТКА СООБЩЕНИЙ ==================
+
 @dp.message_handler(content_types=types.ContentType.TEXT)
-async def text_handler(msg: types.Message):
-    text = msg.text
+async def handle_text(msg: types.Message):
+    mode = user_mode.get(msg.from_user.id)
 
-    try:
-        if text.startswith(("x", "2", "3", "4", "5")):
-            answer = solve_math(text)
-            await msg.answer(answer)
-            return
-    except:
-        pass
-
-    if "график" in text.lower():
-        expr = text.replace("график", "").strip()
-        plot = build_plot(expr)
-        await msg.answer_photo(plot)
+    # ---------- МАТЕМАТИКА ----------
+    if mode == "math":
+        try:
+            result = sp.sympify(msg.text)
+            await msg.answer(f"✅ Ответ:\n`{result}`", parse_mode="Markdown")
+        except:
+            await msg.answer("❌ Не могу решить этот пример")
         return
 
-    if text.lower().startswith("найди"):
-        result = internet_search(text)
-        await msg.answer(result)
+    # ---------- ГРАФИК ----------
+    if mode == "graph":
+        try:
+            buf = build_plot(msg.text)
+            await msg.answer_photo(buf)
+        except:
+            await msg.answer("❌ Ошибка в выражении")
         return
 
-    ai = await ai_answer(text)
-    await msg.answer(ai)
-
-# ================== ФОТО ==================
-@dp.message_handler(content_types=types.ContentType.PHOTO)
-async def photo_handler(msg: types.Message):
-    photo = msg.photo[-1]
-    file = await bot.get_file(photo.file_id)
-    image_bytes = await bot.download_file(file.file_path)
-
-    text = photo_to_text(image_bytes.read())
-    answer = await ai_answer(f"Реши и объясни по шагам:\n{text}")
-
-    await msg.answer(f"📷 Распознанный текст:\n{text}")
-    await msg.answer(answer)
+    await msg.answer("ℹ️ Сначала выбери режим кнопкой 👇", reply_markup=keyboard)
 
 # ================== ЗАПУСК ==================
+
 if __name__ == "__main__":
     executor.start_polling(dp, skip_updates=True)
