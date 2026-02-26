@@ -1,178 +1,135 @@
-., [26.02.2026 15:03]
 import os
-import logging
-import base64
 import io
-
-import matplotlib.pyplot as plt
+import openai
 import sympy as sp
-import numpy as np
+import matplotlib.pyplot as plt
 
 from aiogram import Bot, Dispatcher, executor, types
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
-from openai import OpenAI
 from duckduckgo_search import DDGS
+from PIL import Image
+import pytesseract
 
 # ================== НАСТРОЙКИ ==================
-
+openai.api_key = os.getenv("OPENAI_API_KEY")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
-if not BOT_TOKEN or not OPENAI_API_KEY:
-    raise RuntimeError("❌ BOT_TOKEN или OPENAI_API_KEY не заданы")
-
-logging.basicConfig(level=logging.INFO)
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(bot)
-client = OpenAI(api_key=OPENAI_API_KEY)
 
-# ================== ПАМЯТЬ ==================
+x = sp.symbols('x')
 
-user_memory = {}
-user_mode = {}
-MAX_MEMORY = 6
-
-# ================== КНОПКИ ==================
-
-keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
-keyboard.add(
-    KeyboardButton("📖 Решить по шагам"),
-    KeyboardButton("⚡ Кратко")
-)
-keyboard.add(
-    KeyboardButton("🔄 Сбросить диалог")
-)
-
-# ================== ИНТЕРНЕТ ==================
-
-def web_search(query: str) -> str:
-    with DDGS() as ddgs:
-        results = [
-            f"- {r['title']}: {r['body']}"
-            for r in ddgs.text(query, max_results=3)
+# ================== ИИ ОТВЕТ ==================
+async def ai_answer(prompt: str):
+    response = openai.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "Ты умный учебный помощник. Объясняй понятно и по шагам."},
+            {"role": "user", "content": prompt}
         ]
-    return "\n".join(results)
+    )
+    return response.choices[0].message.content
+
+# ================== МАТЕМАТИКА ==================
+def solve_math(expr: str):
+    if "=" in expr:
+        left, right = expr.split("=")
+        eq = sp.Eq(sp.sympify(left), sp.sympify(right))
+        steps = sp.solve(eq, x, dict=True)
+        return f"Решение:\n{steps}"
+    else:
+        result = sp.sympify(expr)
+        return f"Ответ: {result}"
 
 # ================== ГРАФИК ==================
-
-def looks_like_graph_request(text: str) -> bool:
-    triggers = ["y =", "f(x)", "график", "построй", "зависимость"]
-    text = text.lower()
-    return any(t in text for t in triggers)
-
-def build_graph(expr_text: str):
-    x = sp.symbols("x")
-    expr_text = expr_text.replace("^", "**")
-
-    if "=" in expr_text:
-        expr_text = expr_text.split("=")[1]
-
-    expr = sp.sympify(expr_text)
-    func = sp.lambdify(x, expr, "numpy")
-
-    xs = np.linspace(-10, 10, 400)
-    ys = func(xs)
+def build_plot(expr: str):
+    y = sp.sympify(expr)
+    xs = range(-10, 11)
+    ys = [y.subs(x, i) for i in xs]
 
     plt.figure()
     plt.plot(xs, ys)
-    plt.axhline(0)
-    plt.axvline(0)
     plt.grid()
 
     buf = io.BytesIO()
     plt.savefig(buf, format="png")
-    plt.close()
     buf.seek(0)
+    plt.close()
     return buf
 
-# ================== ИИ (ТЕКСТ) ==================
+# ================== ИНТЕРНЕТ ==================
+def internet_search(query: str):
+    with DDGS() as ddgs:
+        results = list(ddgs.text(query, max_results=3))
+        text = ""
+        for r in results:
+            text += f"• {r['title']}\n{r['body']}\n\n"
+        return text or "Ничего не найдено"
 
-def ai_answer(user_id: int, text: str) -> str:
-    mode = user_mode.get(user_id, "steps")
-    web_info = web_search(text)
-    memory = user_memory.get(user_id, [])
+# ================== ФОТО ==================
+def photo_to_text(image_bytes):
+    image = Image.open(io.BytesIO(image_bytes))
+    return pytesseract.image_to_string(image, lang="rus+eng")
 
-    system = "Ты умный ИИ-репетитор."
-    if mode == "steps":
-        system += " Решай ПО ШАГАМ."
-    else:
-        system += " Отвечай КРАТКО."
+# ================== КНОПКИ ==================
+keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+keyboard.add("📐 Математика", "📷 Фото-задача")
+keyboard.add("🌐 Интернет", "📊 График")
+keyboard.add("🤖 Спросить ИИ")
 
-    messages = [{"role": "system", "content": system}]
-    messages += memory
-    messages.append({
-        "role": "user",
-        "content": f"Интернет:\n{web_info}\n\nВопрос:\n{text}"
-    })
-
-    resp = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=messages,
-        temperature=0.3
-    )
-
-    answer = resp.choices[0].message.content.strip()
-
-    memory.append({"role": "user", "content": text})
-    memory.append({"role": "assistant", "content": answer})
-    user_memory[user_id] = memory[-MAX_MEMORY:]
-
-    return answer
-
-# ================== HANDLERS ==================
-
+# ================== СТАРТ ==================
 @dp.message_handler(commands=["start"])
-async def start(message: types.Message):
-    user_mode[message.from_user.id] = "steps"
-    user_memory[message.from_user.id] = []
-    await message.answer(
-        "👋 Я ИИ-репетитор с графиками 📊\n\n"
+async def start(msg: types.Message):
+    await msg.answer(
+        "👋 Я умный ИИ-бот\n\n"
         "Я умею:\n"
         "• решать задачи\n"
-        "• строить графики\n"
         "• объяснять по шагам\n"
-        "• работать с фото\n\n"
-        "Напиши задачу 👇",
+        "• решать по фото\n"
+        "• строить графики\n"
+        "• искать в интернете",
         reply_markup=keyboard
     )
 
-@dp.message_handler(lambda m: m.text == "📖 Решить по шагам")
-async def mode_steps(message: types.Message):
-    user_mode[message.from_user.id] = "steps"
-    await message.answer("📖 Режим: по шагам")
-
-@dp.message_handler(lambda m: m.text == "⚡ Кратко")
-async def mode_short(message: types.Message):
-    user_mode[message.from_user.id] = "short"
-    await message.answer("⚡ Режим: кратко")
-
-@dp.message_handler(lambda m: m.text == "🔄 Сбросить диалог")
-async def reset(message: types.Message):
-    user_memory[message.from_user.id] = []
-    await message.answer("🔄 Диалог очищен")
-
+# ================== ТЕКСТ ==================
 @dp.message_handler(content_types=types.ContentType.TEXT)
+async def text_handler(msg: types.Message):
+    text = msg.text
 
-., [26.02.2026 15:03]
-async def handle_text(message: types.Message):
-    text = message.text
+    try:
+        if text.startswith(("x", "2", "3", "4", "5")):
+            answer = solve_math(text)
+            await msg.answer(answer)
+            return
+    except:
+        pass
 
-    if looks_like_graph_request(text):
-        try:
-            graph = build_graph(text)
-            await message.answer_photo(
-                photo=graph,
-                caption="📊 График функции"
-            )
-        except Exception:
-            await message.answer("❌ Не удалось построить график")
+    if "график" in text.lower():
+        expr = text.replace("график", "").strip()
+        plot = build_plot(expr)
+        await msg.answer_photo(plot)
+        return
 
-    await message.answer("🧠 Думаю...")
-    answer = ai_answer(message.from_user.id, text)
-    await message.answer(answer)
+    if text.lower().startswith("найди"):
+        result = internet_search(text)
+        await msg.answer(result)
+        return
 
-# ================== START ==================
+    ai = await ai_answer(text)
+    await msg.answer(ai)
 
+# ================== ФОТО ==================
+@dp.message_handler(content_types=types.ContentType.PHOTO)
+async def photo_handler(msg: types.Message):
+    photo = msg.photo[-1]
+    file = await bot.get_file(photo.file_id)
+    image_bytes = await bot.download_file(file.file_path)
+
+    text = photo_to_text(image_bytes.read())
+    answer = await ai_answer(f"Реши и объясни по шагам:\n{text}")
+
+    await msg.answer(f"📷 Распознанный текст:\n{text}")
+    await msg.answer(answer)
+
+# ================== ЗАПУСК ==================
 if __name__ == "__main__":
-    executor.start_polling(dp, skip_updates=True)
+    executor.start_polling(dp, skip_updates=True
