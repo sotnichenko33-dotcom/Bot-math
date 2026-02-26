@@ -132,4 +132,4 @@ async def photo_handler(msg: types.Message):
 
 # ================== ЗАПУСК ==================
 if __name__ == "__main__":
-    executor.start_polling(dp, skip_updates=True
+    executor.start_polling(dp, skip_updates=True)
