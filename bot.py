@@ -1,47 +1,51 @@
 import os
-from aiogram import Bot, Dispatcher, types
-from aiogram.utils import executor
-from openai import AsyncOpenAI
+import logging
+from aiogram import Bot, Dispatcher, executor, types
 
-BOT_TOKEN = os.getenv("8733324125:AAFRO1dGo891edYxWlI5nBvx7rl2MB6HZNg")
-OPENAI_API_KEY = os.getenv("proj-6Dyk5QLZ6Odf57NRXxnsh8BD8IfcQ3717yzeT9m8n-UGcPymAO46SHIfyCRzDYSxrdpFOS3uXuT3BlbkFJJc6MCeZi-_aqdjE5uQrsLputQ0TcS0XDlZnnIJTOCcuE9uBWtN8hkmpahciD0JtSjTrgYAHygA")
+# =========================
+# ЛОГИ
+# =========================
+logging.basicConfig(level=logging.INFO)
 
+# =========================
+# ПЕРЕМЕННЫЕ СРЕДЫ
+# =========================
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+# =========================
+# ПРОВЕРКИ (очень важно)
+# =========================
+if not BOT_TOKEN:
+    raise RuntimeError("❌ BOT_TOKEN не найден в переменных среды")
+
+if not OPENAI_API_KEY:
+    raise RuntimeError("❌ OPENAI_API_KEY не найден в переменных среды")
+
+# =========================
+# BOT / DISPATCHER
+# =========================
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(bot)
 
-client = AsyncOpenAI(api_key="proj-6Dyk5QLZ6Odf57NRXxnsh8BD8IfcQ3717yzeT9m8n-UGcPymAO46SHIfyCRzDYSxrdpFOS3uXuT3BlbkFJJc6MCeZi-_aqdjE5uQrsLputQ0TcS0XDlZnnIJTOCcuE9uBWtN8hkmpahciD0JtSjTrgYAHygA")
-
-
-@dp.message(CommandStart())
-async def start(message: types.Message):
+# =========================
+# ХЭНДЛЕРЫ
+# =========================
+@dp.message_handler(commands=["start"])
+async def start_handler(message: types.Message):
     await message.answer(
-        "Привет! 👋\n\n"
-        "Я бот, который решает задачи по математике.\n"
-        "Просто отправь мне задачу текстом 🙂"
+        "👋 Привет!\n\n"
+        "Я бот-математик 🤖\n"
+        "Напиши любое сообщение — я отвечу."
     )
 
+@dp.message_handler()
+async def echo_handler(message: types.Message):
+    await message.answer(f"Ты написал:\n{message.text}")
 
-@dp.message()
-async def solve_math(message: types.Message):
-    try:
-        response = await client.chat.completions.create(
-    model="gpt-4o-mini",
-    messages=[
-        {"role": "system", "content": "Ты опытный преподаватель математики. Решай задачу подробно."},
-        {"role": "user", "content": message.text}
-    ]
-)
-        answer = response.choices[0].message.content
-        await message.answer(answer)
-
-    except Exception as e:
-        await message.answer("❌ Произошла ошибка при решении задачи.")
-        print("ERROR:", e)
-
-
-async def main():
-    await dp.start_polling(bot)
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
+# =========================
+# ЗАПУСК
+# =========================
+if name == "__main__":
+    logging.info("🚀 Бот запускается...")
+    executor.start_polling(dp, skip_updates=True)
