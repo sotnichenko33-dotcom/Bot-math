@@ -33,7 +33,7 @@ async def ai_handler(message: types.Message):
     }
 
     data = {
-        "model": "mistralai/mistral-7b-instruct",
+        "model": "openrouter/auto",  # 🔥 авто-модель
         "messages": [
             {"role": "user", "content": user_text}
         ]
@@ -43,12 +43,18 @@ async def ai_handler(message: types.Message):
         response = requests.post(url, headers=headers, json=data)
         result = response.json()
 
-        answer = result["choices"][0]["message"]["content"]
+        print(result)  # теперь увидим реальный ответ
+
+        if "choices" in result:
+            answer = result["choices"][0]["message"]["content"]
+        else:
+            answer = f"Ошибка API:\n{result}"
+
         await message.answer(answer)
 
     except Exception as e:
+        print("FULL ERROR:", e)
         await message.answer("Произошла ошибка 😢")
-        print("ERROR:", e)
 
 # Запуск бота
 async def main():
