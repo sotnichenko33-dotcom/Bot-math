@@ -33,20 +33,12 @@ user_sessions = {}
 # Inline клавиатура
 # =========================
 def get_inline_keyboard():
-return InlineKeyboardMarkup(
-    inline_keyboard=[
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(
-                text="🔁 Перегенерировать",
-                callback_data="regenerate"
-            ),
-            InlineKeyboardButton(
-                text="🧹 Очистить память",
-                callback_data="clear"
-            )
+            InlineKeyboardButton(text="🔄 Очистить память", callback_data="clear")
         ]
-    ]
-)
+    ])
+    return keyboard
 
 # =========================
 # /start
