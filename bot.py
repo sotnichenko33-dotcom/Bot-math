@@ -1,120 +1,45 @@
-import logging
-import io
+import asyncio
+import os
+from aiogram import Bot, Dispatcher, types
+from aiogram.filters import Command
+from dotenv import load_dotenv
+from openai import OpenAI
 
-from aiogram import Bot, Dispatcher, executor, types
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+load_dotenv()
 
-import sympy as sp
-import numpy as np
-import matplotlib.pyplot as plt
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# ================== НАСТРОЙКИ ==================
+bot = Bot(token=BOT_TOKEN)
+dp = Dispatcher()
 
-API_TOKEN = "ТВОЙ_TELEGRAM_BOT_TOKEN"
+# Подключаем OpenAI
+client = OpenAI(api_key=OPENAI_API_KEY)
 
-logging.basicConfig(level=logging.INFO)
 
-bot = Bot(token=API_TOKEN)
-dp = Dispatcher(bot)
+@dp.message(Command("start"))
+async def start_handler(message: types.Message):
+    await message.answer("Привет! Я ChatGPT-бот 🤖 Напиши мне что-нибудь!")
 
-# ================== ПЕРЕМЕННЫЕ ==================
 
-user_mode = {}  # режим пользователя: math / graph
+@dp.message()
+async def ai_handler(message: types.Message):
+    user_text = message.text
 
-# ================== КНОПКИ ==================
-
-keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
-keyboard.add(
-    KeyboardButton("▲ Математика"),
-    KeyboardButton("📊 График")
-)
-
-# ================== ГРАФИК ==================
-
-def build_plot(expr: str):
-    x = sp.symbols('x')
-    y = sp.sympify(expr)
-
-    f = sp.lambdify(x, y, "numpy")
-    xs = np.linspace(-10, 10, 400)
-    ys = f(xs)
-
-    plt.figure()
-    plt.plot(xs, ys)
-    plt.grid(True)
-
-    buf = io.BytesIO()
-    plt.savefig(buf, format="png")
-    buf.seek(0)
-    plt.close()
-
-    return buf
-
-# ================== /start ==================
-
-@dp.message_handler(commands=["start"])
-async def start(msg: types.Message):
-    await msg.answer(
-        "👋 Привет!\n\n"
-        "Я умный математический бот 🤖\n"
-        "Выбери режим ниже 👇",
-        reply_markup=keyboard
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "Ты полезный помощник."},
+            {"role": "user", "content": user_text}
+        ]
     )
 
-# ================== РЕЖИМ МАТЕМАТИКА ==================
+    answer = response.choices[0].message.content
+    await message.answer(answer)
 
-@dp.message_handler(lambda msg: msg.text == "▲ Математика")
-async def math_mode(msg: types.Message):
-    user_mode[msg.from_user.id] = "math"
-    await msg.answer(
-        "📐 *Режим Математика включён!*\n\n"
-        "Примеры:\n"
-        "`2+2`\n"
-        "`10000*2`\n"
-        "`(5+3)*4`",
-        parse_mode="Markdown"
-    )
 
-# ================== РЕЖИМ ГРАФИК ==================
-
-@dp.message_handler(lambda msg: msg.text == "📊 График")
-async def graph_mode(msg: types.Message):
-    user_mode[msg.from_user.id] = "graph"
-    await msg.answer(
-        "📊 *Режим График включён!*\n\n"
-        "Введи выражение с `x`\n"
-        "Пример:\n"
-        "`x**2 + 3*x`",
-        parse_mode="Markdown"
-    )
-
-# ================== ОБРАБОТКА СООБЩЕНИЙ ==================
-
-@dp.message_handler(content_types=types.ContentType.TEXT)
-async def handle_text(msg: types.Message):
-    mode = user_mode.get(msg.from_user.id)
-
-    # ---------- МАТЕМАТИКА ----------
-    if mode == "math":
-        try:
-            result = sp.sympify(msg.text)
-            await msg.answer(f"✅ Ответ:\n`{result}`", parse_mode="Markdown")
-        except:
-            await msg.answer("❌ Не могу решить этот пример")
-        return
-
-    # ---------- ГРАФИК ----------
-    if mode == "graph":
-        try:
-            buf = build_plot(msg.text)
-            await msg.answer_photo(buf)
-        except:
-            await msg.answer("❌ Ошибка в выражении")
-        return
-
-    await msg.answer("ℹ️ Сначала выбери режим кнопкой 👇", reply_markup=keyboard)
-
-# ================== ЗАПУСК ==================
+async def main():
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    executor.start_polling(dp, skip_updates=True)
+    asyncio.run(main())

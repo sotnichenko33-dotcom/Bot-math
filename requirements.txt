@@ -1,6 +1,3 @@
-aiogram==2.25.1
-openai==1.12.0
-sympy
-duckduckgo-search==5.3.0
-pillow
-matplotlib
+aiogram
+openai
+python-dotenv
