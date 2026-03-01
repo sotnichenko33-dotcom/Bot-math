@@ -1,166 +1,115 @@
 import asyncio
+import logging
 import os
-import requests
 
-from aiogram import Bot, Dispatcher, types, F
-from aiogram.filters import Command
-from aiogram.types import (
-InlineKeyboardMarkup,
-InlineKeyboardButton
-)
+from aiogram import Bot, Dispatcher, F
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.filters import CommandStart
 from dotenv import load_dotenv
+import openai
 
 # =========================
 # Загрузка переменных
 # =========================
+
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+OPENROUTER_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# =========================
-# Инициализация
-# =========================
+openai.api_key = OPENAI_API_KEY
+
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# =========================
-# Память
-# =========================
+logging.basicConfig(level=logging.INFO)
+
+# Хранилище сессий
 user_sessions = {}
 
 # =========================
-# Inline клавиатура
+# Клавиатура
 # =========================
+
 def get_inline_keyboard():
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="🔄 Очистить память", callback_data="clear")
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🧹 Очистить диалог",
+                    callback_data="clear_history"
+                )
+            ]
         ]
-    ])
-    return keyboard
+    )
 
 # =========================
 # /start
 # =========================
-@dp.message(Command("start"))
-async def start_handler(message: types.Message):
+
+@dp.message(CommandStart())
+async def start_handler(message: Message):
+    user_sessions[message.from_user.id] = []
     await message.answer(
-        "Привет! 🤖 Я AI-бот с памятью.\n\n"
-        "Я запоминаю контекст.\n"
-        "Используй кнопки под ответом 👇",
+        "Привет 👋 Я ChatGPT-бот.\n\nНапиши мне что-нибудь!",
         reply_markup=get_inline_keyboard()
     )
 
 # =========================
-# Очистка памяти
+# Очистка истории
 # =========================
-@dp.callback_query(F.data == "clear")
-async def clear_memory(callback: types.CallbackQuery):
-user_id = callback.from_user.id
 
-if user_id in user_sessions:
-    del user_sessions[user_id]
+@dp.callback_query(F.data == "clear_history")
+async def clear_history(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    user_sessions[user_id] = []
 
-await callback.message.answer("✅ Память очищена!")
-await callback.answer()
-
-# =========================
-# Перегенерация
-# =========================
-@dp.callback_query(F.data == "regenerate")
-async def regenerate_answer(callback: types.CallbackQuery):
-user_id = callback.from_user.id
-
-if user_id not in user_sessions or len(user_sessions[user_id]) < 2:
-    await callback.answer("Нечего перегенерировать 🙂", show_alert=True)
-    return
-
-# Удаляем последний ответ бота
-if user_sessions[user_id][-1]["role"] == "assistant":
-    user_sessions[user_id].pop()
-
-await callback.answer()
-await generate_ai_response(callback.message, user_id)
+    await callback.message.answer("🧹 История очищена!")
+    await callback.answer()
 
 # =========================
-# Обработка сообщений
+# Основной обработчик сообщений
 # =========================
+
 @dp.message()
-async def ai_handler(message: types.Message):
+async def chat_handler(message: Message):
+    user_id = message.from_user.id
+    user_text = message.text
 
-if not message.text:
-    await message.answer("Я понимаю только текст 🙂")
-    return
+    if user_id not in user_sessions:
+        user_sessions[user_id] = []
 
-user_id = message.from_user.id
+    user_sessions[user_id].append({
+        "role": "user",
+        "content": user_text
+    })
 
-if user_id not in user_sessions:
-    user_sessions[user_id] = [
-        {"role": "system", "content": "Ты полезный AI-помощник."}
-    ]
-
-user_sessions[user_id].append({
-    "role": "user",
-    "content": message.text
-})
-
-user_sessions[user_id] = user_sessions[user_id][-10:]
-
-await generate_ai_response(message, user_id)
-
-# =========================
-# Генерация ответа
-# =========================
-async def generate_ai_response(message, user_id):
-
-await bot.send_chat_action(message.chat.id, "typing")
-
-url = "https://openrouter.ai/api/v1/chat/completions"
-
-headers = {
-    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-    "Content-Type": "application/json"
-}
-
-models = [
-    "stepfun/step-3.5-flash:free",
-    "mistralai/mistral-7b-instruct:free",
-    "meta-llama/llama-3-8b-instruct:free"
-]
-
-for model in models:
     try:
-        data = {
-            "model": model,
-            "messages": user_sessions[user_id]
-        }
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=user_sessions[user_id]
+        )
 
-        response = requests.post(url, headers=headers, json=data, timeout=60)
-        result = response.json()
+        answer = response["choices"][0]["message"]["content"]
 
-        if "choices" in result:
-answer = result["choices"][0]["message"]["content"]
+        user_sessions[user_id].append({
+            "role": "assistant",
+            "content": answer
+        })
 
-user_sessions[user_id].append({
-    "role": "assistant",
-    "content": answer
-})
-
-await message.answer(
-    answer,
-    reply_markup=get_inline_keyboard()
-)
-return
+        await message.answer(
+            answer,
+            reply_markup=get_inline_keyboard()
+        )
 
     except Exception as e:
         print("Ошибка:", e)
-
-await message.answer("⚠️ Все модели недоступны.")
+        await message.answer("⚠️ Ошибка при обращении к OpenAI.")
 
 # =========================
 # Запуск
 # =========================
+
 async def main():
     await dp.start_polling(bot)
 
