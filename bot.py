@@ -32,28 +32,26 @@ async def ai_handler(message: types.Message):
         "Content-Type": "application/json"
     }
 
-   data = {
-    "model": "stepfun/step-3.5-flash:free",
-    "messages": [
-        {"role": "user", "content": user_text}
-    ]
-}
+    data = {
+        "model": "stepfun/step-3.5-flash:free",
+        "messages": [
+            {"role": "user", "content": user_text}
+        ]
+    }
 
     try:
         response = requests.post(url, headers=headers, json=data)
         result = response.json()
 
-        print(result)  # теперь увидим реальный ответ
-
         if "choices" in result:
             answer = result["choices"][0]["message"]["content"]
         else:
-            answer = f"Ошибка API:\n{result}"
+            answer = f"Ошибка API: {result}"
 
         await message.answer(answer)
 
     except Exception as e:
-        print("FULL ERROR:", e)
+        print("ERROR:", e)
         await message.answer("Произошла ошибка 😢")
 
 # Запуск бота
