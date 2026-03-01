@@ -146,22 +146,19 @@ async def generate_ai_response(message, user_id):
             response = requests.post(url, headers=headers, json=data, timeout=60)
             result = response.json()
 
-            if "choices" in result:
-                answer = result["choices"][0]["message"]["content"]
+          if "choices" in result:
+    answer = result["choices"][0]["message"]["content"]
 
-                user_sessions[user_id].append({
-                    "role": "assistant",
-                    "content": answer
-                })
+    user_sessions[user_id].append({
+        "role": "assistant",
+        "content": answer
+    })
 
-                await message.
-
-
-answer(
-                    answer,
-                    reply_markup=get_inline_keyboard()
-                )
-                return
+    await message.answer(
+        answer,
+        reply_markup=get_inline_keyboard()
+    )
+    return
 
         except Exception as e:
             print("Ошибка:", e)
