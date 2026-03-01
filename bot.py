@@ -45,11 +45,12 @@ def get_inline_keyboard():
 # =========================
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
-await message.answer(
-    "Привет! 🤖 Я AI-бот с памятью.\n\n"
-    "Я запоминаю контекст.\n"
-    "Используй кнопки под ответом 👇"
-)
+    await message.answer(
+        "Привет! 🤖 Я AI-бот с памятью.\n\n"
+        "Я запоминаю контекст.\n"
+        "Используй кнопки под ответом 👇",
+        reply_markup=get_inline_keyboard()
+    )
 
 # =========================
 # Очистка памяти
@@ -161,7 +162,7 @@ await message.answer("⚠️ Все модели недоступны.")
 # Запуск
 # =========================
 async def main():
-await dp.start_polling(bot)
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
 asyncio.run(main())
