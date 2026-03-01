@@ -8,6 +8,8 @@ from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from dotenv import load_dotenv
+from database import init_db, add_or_update_user, get_stats
+from aiogram.filters import Command
 
 # =========================
 # Конфигурация
@@ -140,11 +142,14 @@ async def regenerate_answer(callback: types.CallbackQuery):
 
 @dp.message()
 async def ai_handler(message: types.Message):
+    user_id = message.from_user.id
+    username = message.from_user.username or "NoUsername"
+
+    add_or_update_user(user_id, username)
     if not message.text:
         await message.answer("Я понимаю только текст 🙂")
         return
 
-    user_id = message.from_user.id
     history = get_user_history(user_id)
 
     history.append({"role": "user", "content": message.text})
@@ -178,7 +183,28 @@ async def process_ai(message: types.Message, user_id: int):
 # =========================
 # Запуск
 # =========================
+ADMIN_ID = 8502393010 # сюда вставь свой Telegram ID
+
+
+@dp.message(Command("admin"))
+async def admin_stats(message: types.Message):
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    total, new_today, active_24h, total_messages = get_stats()
+
+    text = (
+        f"📊 Статистика бота:\n\n"
+        f"👥 Всего пользователей: {total}\n"
+        f"🆕 Новых сегодня: {new_today}\n"
+        f"🟢 Активных за 24ч: {active_24h}\n"
+        f"💬 Всего сообщений: {total_messages}"
+    )
+
+    await message.answer(text)
+
 async def main():
+    init_db()
     await dp.start_polling(bot)
 
 
