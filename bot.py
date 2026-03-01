@@ -32,12 +32,12 @@ async def ai_handler(message: types.Message):
         "Content-Type": "application/json"
     }
 
-    data = {
-        "model": "openrouter/auto",  # 🔥 авто-модель
-        "messages": [
-            {"role": "user", "content": user_text}
-        ]
-    }
+   data = {
+    "model": "stepfun/step-3.5-flash:free",
+    "messages": [
+        {"role": "user", "content": user_text}
+    ]
+}
 
     try:
         response = requests.post(url, headers=headers, json=data)
