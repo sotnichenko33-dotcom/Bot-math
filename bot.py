@@ -5,6 +5,7 @@ import requests
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from dotenv import load_dotenv
+user_sessions = {}
 
 # Загружаем переменные из .env
 load_dotenv()
@@ -23,6 +24,7 @@ async def start_handler(message: types.Message):
 # Обработка всех сообщений
 @dp.message()
 async def ai_handler(message: types.Message):
+    user_id = message.from_user.id
     user_text = message.text
 
     url = "https://openrouter.ai/api/v1/chat/completions"
@@ -32,21 +34,30 @@ async def ai_handler(message: types.Message):
         "Content-Type": "application/json"
     }
 
+    # если пользователя нет в памяти — создаём
+    if user_id not in user_sessions:
+        user_sessions[user_id] = []
+
+    # добавляем сообщение пользователя
+    user_sessions[user_id].append({
+        "role": "user",
+        "content": user_text
+    })
+
+    # ограничиваем память (последние 10 сообщений)
+    user_sessions[user_id] = user_sessions[user_id][-10:]
+
     models = [
         "stepfun/step-3.5-flash:free",
         "mistralai/mistral-7b-instruct:free",
-        "meta-llama/llama-3-8b-instruct:free",
-        "google/gemma-7b-it:free",
-        "nousresearch/nous-hermes-2-mistral-7b-dpo:free"
+        "meta-llama/llama-3-8b-instruct:free"
     ]
 
     for model in models:
         try:
             data = {
                 "model": model,
-                "messages": [
-                    {"role": "user", "content": user_text}
-                ]
+                "messages": user_sessions[user_id]
             }
 
             response = requests.post(url, headers=headers, json=data)
@@ -54,18 +65,20 @@ async def ai_handler(message: types.Message):
 
             if "choices" in result:
                 answer = result["choices"][0]["message"]["content"]
+
+                # добавляем ответ бота в память
+                user_sessions[user_id].append({
+                    "role": "assistant",
+                    "content": answer
+                })
+
                 await message.answer(answer)
                 return
-
-            # если ошибка 401 или 402 — дальше нет смысла
-            if result.get("error", {}).get("code") in [401, 402]:
-                break
 
         except Exception as e:
             print("Error:", model, e)
 
-    await message.answer("⚠️ Все модели сейчас недоступны. Попробуй позже.")
-
+    await message.answer("⚠️ Все модели сейчас недоступны.")
 # Запуск бота
 async def main():
     await dp.start_polling(bot)
