@@ -33,7 +33,7 @@ async def ai_handler(message: types.Message):
     }
 
     data = {
-        "model": "stepfun/step-3.5-flash:free",
+        "model": "meta-llama/llama-3-8b-instruct:free",
         "messages": [
             {"role": "user", "content": user_text}
         ]
