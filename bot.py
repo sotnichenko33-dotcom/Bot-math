@@ -32,27 +32,33 @@ async def ai_handler(message: types.Message):
         "Content-Type": "application/json"
     }
 
-    data = {
-        "model": "mistralai/mistral-7b-instruct:free",
-        "messages": [
-            {"role": "user", "content": user_text}
-        ]
-    }
+    models = [
+        "stepfun/step-3.5-flash:free",
+        "mistralai/mistral-7b-instruct:free",
+        "meta-llama/llama-3-8b-instruct:free"
+    ]
 
-    try:
-        response = requests.post(url, headers=headers, json=data)
-        result = response.json()
+    for model in models:
+        data = {
+            "model": model,
+            "messages": [
+                {"role": "user", "content": user_text}
+            ]
+        }
 
-        if "choices" in result:
-            answer = result["choices"][0]["message"]["content"]
-        else:
-            answer = f"Ошибка API: {result}"
+        try:
+            response = requests.post(url, headers=headers, json=data)
+            result = response.json()
 
-        await message.answer(answer)
+            if "choices" in result:
+                answer = result["choices"][0]["message"]["content"]
+                await message.answer(answer)
+                return
 
-    except Exception as e:
-        print("ERROR:", e)
-        await message.answer("Произошла ошибка 😢")
+        except Exception as e:
+            print("Error with model:", model, e)
+
+    await message.answer("Все модели сейчас перегружены 😔 Попробуй позже.")
 
 # Запуск бота
 async def main():
