@@ -141,9 +141,7 @@ async def regenerate_answer(callback: types.CallbackQuery):
 @dp.message()
 async def ai_handler(message: types.Message):
     if not message.text:
-        await message.
-
-answer("Я понимаю только текст 🙂")
+        await message.answer("Я понимаю только текст 🙂")
         return
 
     user_id = message.from_user.id
