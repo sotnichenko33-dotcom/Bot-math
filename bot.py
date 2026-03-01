@@ -1,4 +1,3 @@
-., [02.03.2026 0:39]
 import asyncio
 import os
 import requests
