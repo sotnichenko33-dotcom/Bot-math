@@ -1,10 +1,14 @@
+., [02.03.2026 0:39]
 import asyncio
 import os
 import requests
 
-from aiogram import Bot, Dispatcher, types
+from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import (
+    InlineKeyboardMarkup,
+    InlineKeyboardButton
+)
 from dotenv import load_dotenv
 
 # =========================
@@ -22,56 +26,103 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
 # =========================
-# Память пользователей
+# Память
 # =========================
 user_sessions = {}
 
 # =========================
-# Клавиатура
+# Inline клавиатура
 # =========================
-keyboard = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text="🧹 Очистить память")]
-    ],
-    resize_keyboard=True
-)
+def get_inline_keyboard():
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🔁 Перегенерировать",
+                    callback_data="regenerate"
+                ),
+                InlineKeyboardButton(
+                    text="🧹 Очистить память",
+                    callback_data="clear"
+                )
+            ]
+        ]
+    )
 
 # =========================
-# Команда /start
+# /start
 # =========================
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
     await message.answer(
-        "Привет! 🤖 Я ChatGPT-бот с памятью.\n\n"
-        "Я запоминаю последние сообщения в диалоге.\n"
-        "Если нужно — нажми «Очистить память».",
-        reply_markup=keyboard
+        "Привет! 🤖 Я AI-бот с памятью.\n\n"
+        "Я запоминаю контекст.\n"
+        "Используй кнопки под ответом 👇"
     )
 
 # =========================
 # Очистка памяти
 # =========================
-@dp.message(lambda message: message.text == "🧹 Очистить память")
-async def clear_memory(message: types.Message):
-    user_id = message.from_user.id
+@dp.callback_query(F.data == "clear")
+async def clear_memory(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
 
     if user_id in user_sessions:
         del user_sessions[user_id]
 
-    await message.answer("✅ Память очищена!")
+    await callback.message.answer("✅ Память очищена!")
+    await callback.answer()
+
+# =========================
+# Перегенерация
+# =========================
+@dp.callback_query(F.data == "regenerate")
+async def regenerate_answer(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+
+    if user_id not in user_sessions or len(user_sessions[user_id]) < 2:
+        await callback.answer("Нечего перегенерировать 🙂", show_alert=True)
+        return
+
+    # Удаляем последний ответ бота
+    if user_sessions[user_id][-1]["role"] == "assistant":
+        user_sessions[user_id].pop()
+
+    await callback.answer()
+    await generate_ai_response(callback.message, user_id)
 
 # =========================
 # Обработка сообщений
 # =========================
 @dp.message()
 async def ai_handler(message: types.Message):
-    # защита от фото / стикеров
+
     if not message.text:
-        await message.answer("Я пока понимаю только текстовые сообщения 🙂")
+        await message.answer("Я понимаю только текст 🙂")
         return
 
     user_id = message.from_user.id
-    user_text = message.text
+
+    if user_id not in user_sessions:
+        user_sessions[user_id] = [
+            {"role": "system", "content": "Ты полезный AI-помощник."}
+        ]
+
+    user_sessions[user_id].append({
+        "role": "user",
+        "content": message.text
+    })
+
+    user_sessions[user_id] = user_sessions[user_id][-10:]
+
+    await generate_ai_response(message, user_id)
+
+# =========================
+# Генерация ответа
+# =========================
+async def generate_ai_response(message, user_id):
+
+    await bot.send_chat_action(message.chat.id, "typing")
 
     url = "https://openrouter.ai/api/v1/chat/completions"
 
@@ -79,21 +130,6 @@ async def ai_handler(message: types.Message):
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json"
     }
-
-    # создаём память, если её нет
-    if user_id not in user_sessions:
-        user_sessions[user_id] = [
-            {"role": "system", "content": "Ты полезный и умный AI-помощник."}
-        ]
-
-    # добавляем сообщение пользователя
-    user_sessions[user_id].append({
-        "role": "user",
-        "content": user_text
-    })
-
-    # ограничиваем память (последние 10 сообщений)
-    user_sessions[user_id] = user_sessions[user_id][-10:]
 
     models = [
         "stepfun/step-3.5-flash:free",
@@ -114,19 +150,24 @@ async def ai_handler(message: types.Message):
             if "choices" in result:
                 answer = result["choices"][0]["message"]["content"]
 
-                # сохраняем ответ бота в память
                 user_sessions[user_id].append({
                     "role": "assistant",
                     "content": answer
                 })
 
-                await message.answer(answer)
+                await message.
+
+., [02.03.2026 0:39]
+answer(
+                    answer,
+                    reply_markup=get_inline_keyboard()
+                )
                 return
 
         except Exception as e:
-            print("Ошибка модели:", model, e)
+            print("Ошибка:", e)
 
-    await message.answer("⚠️ Все модели сейчас недоступны. Попробуй позже.")
+    await message.answer("⚠️ Все модели недоступны.")
 
 # =========================
 # Запуск
