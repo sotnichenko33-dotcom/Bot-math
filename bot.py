@@ -156,7 +156,7 @@ async def generate_ai_response(message, user_id):
 
                 await message.
 
-., [02.03.2026 0:39]
+
 answer(
                     answer,
                     reply_markup=get_inline_keyboard()
