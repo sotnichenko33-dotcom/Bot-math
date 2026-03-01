@@ -107,6 +107,25 @@ async def request_model(messages):
 # =========================
 # Handlers
 # =========================
+ADMIN_ID = 8502393010 # сюда вставь свой Telegram ID
+
+@dp.message(Command("admin"))
+async def admin_stats(message: types.Message):
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    total, new_today, active_24h, total_messages = get_stats()
+
+    text = (
+        f"📊 Статистика бота:\n\n"
+        f"👥 Всего пользователей: {total}\n"
+        f"🆕 Новых сегодня: {new_today}\n"
+        f"🟢 Активных за 24ч: {active_24h}\n"
+        f"💬 Всего сообщений: {total_messages}"
+    )
+
+    await message.answer(text)
+    
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
     await message.answer(
@@ -183,25 +202,6 @@ async def process_ai(message: types.Message, user_id: int):
 # =========================
 # Запуск
 # =========================
-ADMIN_ID = 8502393010 # сюда вставь свой Telegram ID
-
-
-@dp.message(Command("admin"))
-async def admin_stats(message: types.Message):
-    if message.from_user.id != ADMIN_ID:
-        return
-
-    total, new_today, active_24h, total_messages = get_stats()
-
-    text = (
-        f"📊 Статистика бота:\n\n"
-        f"👥 Всего пользователей: {total}\n"
-        f"🆕 Новых сегодня: {new_today}\n"
-        f"🟢 Активных за 24ч: {active_24h}\n"
-        f"💬 Всего сообщений: {total_messages}"
-    )
-
-    await message.answer(text)
 
 async def main():
     init_db()
