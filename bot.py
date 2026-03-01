@@ -35,18 +35,20 @@ async def ai_handler(message: types.Message):
     models = [
         "stepfun/step-3.5-flash:free",
         "mistralai/mistral-7b-instruct:free",
-        "meta-llama/llama-3-8b-instruct:free"
+        "meta-llama/llama-3-8b-instruct:free",
+        "google/gemma-7b-it:free",
+        "nousresearch/nous-hermes-2-mistral-7b-dpo:free"
     ]
 
     for model in models:
-        data = {
-            "model": model,
-            "messages": [
-                {"role": "user", "content": user_text}
-            ]
-        }
-
         try:
+            data = {
+                "model": model,
+                "messages": [
+                    {"role": "user", "content": user_text}
+                ]
+            }
+
             response = requests.post(url, headers=headers, json=data)
             result = response.json()
 
@@ -55,10 +57,14 @@ async def ai_handler(message: types.Message):
                 await message.answer(answer)
                 return
 
-        except Exception as e:
-            print("Error with model:", model, e)
+            # если ошибка 401 или 402 — дальше нет смысла
+            if result.get("error", {}).get("code") in [401, 402]:
+                break
 
-    await message.answer("Все модели сейчас перегружены 😔 Попробуй позже.")
+        except Exception as e:
+            print("Error:", model, e)
+
+    await message.answer("⚠️ Все модели сейчас недоступны. Попробуй позже.")
 
 # Запуск бота
 async def main():
