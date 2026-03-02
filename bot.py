@@ -153,8 +153,8 @@ async def regenerate_answer(callback: types.CallbackQuery):
     await process_ai(callback.message, user_id)
 
     @dp.message(F.photo)
-async def handle_photo(message: Message):
-    photo = message.photo[-1]
+    async def handle_photo(message: Message):
+        photo = message.photo[-1]
 
     # Получаем файл
     file = await bot.get_file(photo.file_id)
