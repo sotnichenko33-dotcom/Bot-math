@@ -96,8 +96,8 @@ def add_message(user_id: int, role: str, content: str):
     conn.close()
 
     def get_user_history(user_id: int, limit: int = 10):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
 
     cursor.execute("""
         SELECT role, content
@@ -119,10 +119,10 @@ def add_message(user_id: int, role: str, content: str):
     return history
     
     def clear_history(user_id: int):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
 
-    cursor.execute("DELETE FROM messages WHERE user_id = ?", (user_id,))
+        cursor.execute("DELETE FROM messages WHERE user_id = ?", (user_id,))
 
-    conn.commit()
-    conn.close()
+        conn.commit()
+        conn.close()
