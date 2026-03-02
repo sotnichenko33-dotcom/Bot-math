@@ -17,6 +17,15 @@ def init_db():
         messages_count INTEGER DEFAULT 0
     )
     """)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        role TEXT,
+        content TEXT,
+        created_at TEXT
+    )
+    """)
 
     conn.commit()
     conn.close()
@@ -68,4 +77,52 @@ def get_stats():
 
     conn.close()
 
+    ...
     return total_users, new_today, active_24h, total_messages
+
+
+def add_message(user_id: int, role: str, content: str):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+
+    now = datetime.utcnow().isoformat()
+
+    cursor.execute("""
+        INSERT INTO messages (user_id, role, content, created_at)
+        VALUES (?, ?, ?, ?)
+    """, (user_id, role, content, now))
+
+    conn.commit()
+    conn.close()
+
+    def get_user_history(user_id: int, limit: int = 10):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT role, content
+        FROM messages
+        WHERE user_id = ?
+        ORDER BY id DESC
+        LIMIT ?
+    """, (user_id, limit))
+
+    rows = cursor.fetchall()
+    conn.close()
+
+    rows.reverse()
+
+    history = [{"role": "system", "content": "Ты полезный AI-помощник."}]
+    for role, content in rows:
+        history.append({"role": role, "content": content})
+
+    return history
+    
+    def clear_history(user_id: int):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM messages WHERE user_id = ?", (user_id,))
+
+    conn.commit()
+    conn.close()

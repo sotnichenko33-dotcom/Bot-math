@@ -8,8 +8,14 @@ from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from dotenv import load_dotenv
-from database import init_db, add_or_update_user, get_stats
-from aiogram.filters import Command
+from database import (
+    init_db,
+    add_or_update_user,
+    get_stats,
+    add_message,
+    get_user_history,
+    clear_history
+)
 
 # =========================
 # Конфигурация
@@ -33,9 +39,7 @@ dp = Dispatcher()
 # =========================
 # Память
 # =========================
-user_sessions: Dict[int, List[Dict]] = {}
 
-SYSTEM_PROMPT = {"role": "system", "content": "Ты полезный AI-помощник."}
 
 MAX_HISTORY = 10
 TELEGRAM_LIMIT = 4000
@@ -52,20 +56,6 @@ def get_inline_keyboard():
             ]
         ]
     )
-
-# =========================
-# Memory utils
-# =========================
-def get_user_history(user_id: int):
-    if user_id not in user_sessions:
-        user_sessions[user_id] = [SYSTEM_PROMPT.copy()]
-    return user_sessions[user_id]
-
-def trim_history(user_id: int):
-    history = user_sessions[user_id]
-    system_msg = history[0]
-    trimmed = history[-(MAX_HISTORY - 1):]
-    user_sessions[user_id] = [system_msg] + trimmed
 
 # =========================
 # AI Service
@@ -135,12 +125,13 @@ async def start_handler(message: types.Message):
 
 @dp.message(Command("reset"))
 async def reset_handler(message: types.Message):
-    user_sessions.pop(message.from_user.id, None)
+    user_id = message.from_user.id
+    clear_history(user_id)
     await message.answer("✅ Память очищена!")
 
 @dp.callback_query(F.data == "clear")
 async def clear_memory(callback: types.CallbackQuery):
-    user_sessions.pop(callback.from_user.id, None)
+    clear_history(callback.from_user.id)
     await callback.message.answer("✅ Память очищена!")
     await callback.answer()
 
@@ -165,14 +156,13 @@ async def ai_handler(message: types.Message):
     username = message.from_user.username or "NoUsername"
 
     add_or_update_user(user_id, username)
+
     if not message.text:
-        await message.answer("Я понимаю только текст 🙂")
+        await message.answer("Я понимаю только текст 🤔")
         return
 
-    history = get_user_history(user_id)
-
-    history.append({"role": "user", "content": message.text})
-    trim_history(user_id)
+    # 🔥 сохраняем сообщение пользователя в БД
+    add_message(user_id, "user", message.text)
 
     await process_ai(message, user_id)
 
@@ -182,7 +172,9 @@ async def ai_handler(message: types.Message):
 async def process_ai(message: types.Message, user_id: int):
     await bot.send_chat_action(message.chat.id, "typing")
 
-    history = get_user_history(user_id)
+    # 🔥 берём историю из БД
+    history = get_user_history(user_id, limit=MAX_HISTORY)
+
     answer = await request_model(history)
 
     if not answer:
@@ -192,7 +184,8 @@ async def process_ai(message: types.Message, user_id: int):
     if len(answer) > TELEGRAM_LIMIT:
         answer = answer[:TELEGRAM_LIMIT]
 
-    history.append({"role": "assistant", "content": answer})
+    # 🔥 сохраняем ответ модели в БД
+    add_message(user_id, "assistant", answer)
 
     await message.answer(
         answer,
