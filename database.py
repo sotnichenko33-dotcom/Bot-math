@@ -95,9 +95,9 @@ def add_message(user_id: int, role: str, content: str):
     conn.commit()
     conn.close()
 
-    def get_user_history(user_id: int, limit: int = 10):
-        conn = sqlite3.connect(DB_NAME)
-        cursor = conn.cursor()
+def get_user_history(user_id: int, limit: int = 10):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
 
     cursor.execute("""
         SELECT role, content
@@ -112,9 +112,15 @@ def add_message(user_id: int, role: str, content: str):
 
     rows.reverse()
 
-    history = [{"role": "system", "content": "Ты полезный AI-помощник."}]
+    history = [
+        {"role": "system", "content": "You are a helpful AI assistant."}
+    ]
+
     for role, content in rows:
-        history.append({"role": role, "content": content})
+        history.append({
+            "role": role,
+            "content": content
+        })
 
     return history
     
