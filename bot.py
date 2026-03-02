@@ -209,7 +209,7 @@ async def regenerate_answer(callback: types.CallbackQuery):
 
     await message.answer(answer)
 
-@dp.message()
+@dp.message(F.text)
 async def ai_handler(message: types.Message):
     user_id = message.from_user.id
     username = message.from_user.username or "NoUsername"
