@@ -4,6 +4,8 @@ import logging
 from typing import Dict, List
 
 import aiohttp
+import base64
+from aiogram.types import Message
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -149,6 +151,63 @@ async def regenerate_answer(callback: types.CallbackQuery):
 
     await callback.answer()
     await process_ai(callback.message, user_id)
+
+    @dp.message(F.photo)
+async def handle_photo(message: Message):
+    photo = message.photo[-1]
+
+    # Получаем файл
+    file = await bot.get_file(photo.file_id)
+    file_path = file.file_path
+
+    file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
+
+    # Скачиваем изображение
+    async with aiohttp.ClientSession() as session:
+        async with session.get(file_url) as resp:
+            image_bytes = await resp.read()
+
+    base64_image = base64.b64encode(image_bytes).decode("utf-8")
+
+    await message.answer("📸 Анализирую фото...")
+
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://railway.app",  # можно оставить
+        "X-Title": "Telegram Bot"
+    }
+
+    data = {
+        "model": "openai/gpt-4o-mini",
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Что изображено на этом фото?"},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{base64_image}"
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers=headers,
+            json=data
+        ) as response:
+
+            result = await response.json()
+
+    answer = result["choices"][0]["message"]["content"]
+
+    await message.answer(answer)
 
 @dp.message()
 async def ai_handler(message: types.Message):
