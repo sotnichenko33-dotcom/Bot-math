@@ -205,10 +205,10 @@ async def handle_photo(message: Message):
 
         print(result)  # временно для логов
 
-    if "choices" in result:
-        answer = result["choices"][0]["message"]["content"]
-    else:
-    answer = f"Ошибка API: {result}"
+        if "choices" in result:
+            answer = result["choices"][0]["message"]["content"]
+        else:
+        answer = f"Ошибка API: {result}"
 
         await message.answer(answer)
 
