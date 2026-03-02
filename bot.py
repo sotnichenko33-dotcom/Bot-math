@@ -152,62 +152,63 @@ async def regenerate_answer(callback: types.CallbackQuery):
     await callback.answer()
     await process_ai(callback.message, user_id)
 
-    @dp.message(F.photo)
-    async def handle_photo(message: Message):
+   @dp.message(F.photo)
+async def handle_photo(message: Message):
+    try:
+        await message.answer("📸 Анализирую фото...")
+
         photo = message.photo[-1]
+        file = await bot.get_file(photo.file_id)
+        file_path = file.file_path
 
-    # Получаем файл
-    file = await bot.get_file(photo.file_id)
-    file_path = file.file_path
+        file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
 
-    file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(file_url) as resp:
+                image_bytes = await resp.read()
 
-    # Скачиваем изображение
-    async with aiohttp.ClientSession() as session:
-        async with session.get(file_url) as resp:
-            image_bytes = await resp.read()
+        base64_image = base64.b64encode(image_bytes).decode("utf-8")
 
-    base64_image = base64.b64encode(image_bytes).decode("utf-8")
+        # 👇 ВАЖНО: напиши сюда свою модель
+        model_name = "openai/gpt-4o"
 
-    await message.answer("📸 Анализирую фото...")
+        headers = {
+            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+            "Content-Type": "application/json"
+        }
 
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://railway.app",  # можно оставить
-        "X-Title": "Telegram Bot"
-    }
-
-    data = {
-        "model": "openai/gpt-4o-mini",
-        "messages": [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": "Что изображено на этом фото?"},
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/jpeg;base64,{base64_image}"
+        data = {
+            "model": model_name,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "Что изображено на фото?"},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{base64_image}"
+                            }
                         }
-                    }
-                ]
-            }
-        ]
-    }
+                    ]
+                }
+            ]
+        }
 
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers=headers,
-            json=data
-        ) as response:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers=headers,
+                json=data
+            ) as resp:
+                result = await resp.json()
 
-            result = await response.json()
+        answer = result["choices"][0]["message"]["content"]
 
-    answer = result["choices"][0]["message"]["content"]
+        await message.answer(answer)
 
-    await message.answer(answer)
+    except Exception as e:
+        await message.answer(f"❌ Ошибка:\n{e}")
 
 @dp.message(F.text)
 async def ai_handler(message: types.Message):
